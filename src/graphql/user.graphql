@@ -1,0 +1,25 @@
+query CurrentUser {
+  me {
+    ...UserData
+  }
+}
+
+mutation UpdateUser($firstname: String!, $lastname: String!) {
+  updateUser(data: { firstname: $firstname, lastname: $lastname }) {
+    ...UserData
+  }
+}
+
+mutation ChangePassword($old_password: String!, $new_password: String!) {
+  changePassword(data: { oldPassword: $old_password, newPassword: $new_password }) {
+    ...UserData
+  }
+}
+
+fragment UserData on User {
+  id
+  email
+  firstname
+  lastname
+  role
+}
