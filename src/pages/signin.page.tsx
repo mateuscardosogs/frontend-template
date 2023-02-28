@@ -10,11 +10,11 @@ export default function Signin() {
   const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
 
-    const data = { email,  password }
+    const data = { email: email,  password: password }
 
     await signIn(data);
     },
-    [signIn]
+    [email, password, signIn]
   );
 
   return (

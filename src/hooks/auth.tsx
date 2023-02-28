@@ -48,6 +48,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const isSignedIn = useMemo(() => Object.keys(user).length > 0, [user]);
 
+  const [signInUser] = useSignInMutation();
+
   useEffect(() => {
     authChannel = new BroadcastChannel('auth')
 
@@ -80,8 +82,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
     try {
-      const [signInUser] = useSignInMutation();
-
       const response = await signInUser({
         variables: {
           email,
