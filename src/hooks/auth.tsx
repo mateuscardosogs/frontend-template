@@ -1,6 +1,6 @@
 import Router from 'next/router';
+import { useSignInMutation } from "../graphql/generated";
 import { setCookie, parseCookies, destroyCookie } from 'nookies';
-import { useSignInMutation, useCurrentUserQuery } from "../graphql/generated";
 import React, { useContext, createContext, ReactNode, useEffect, useState, useMemo, useCallback } from 'react';
 
 type User = {
@@ -18,8 +18,8 @@ type SignInCredentials = {
 type AuthContextData = {
   signIn: (credentials: SignInCredentials) => Promise<void>;
   signOut: () => void;
+  getUser: () => any;
   isSignedIn: boolean;
-  user: User;
 };
 
 type AuthProviderProps = {
@@ -27,8 +27,6 @@ type AuthProviderProps = {
 };
 
 export const AuthContext = createContext({} as AuthContextData);
-
-let authChannel: BroadcastChannel;
 
 export const useAuth = () => {
   return useContext(AuthContext)
@@ -38,46 +36,16 @@ export function signOut() {
   destroyCookie(undefined, 'auth.token')
   destroyCookie(undefined, 'auth.refreshToken')
 
-  authChannel.postMessage('signOut');
-
-  Router.push('/')
+  Router.push('/signin')
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User>({} as User);
-
-  const isSignedIn = useMemo(() => Object.keys(user).length > 0, [user]);
-
   const [signInUser] = useSignInMutation();
 
-  useEffect(() => {
-    authChannel = new BroadcastChannel('auth')
-
-    authChannel.onmessage = (message) => {
-      switch (message.data) {
-        case 'signOut':
-          signOut();
-          break;
-        default:
-          break;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
+  const isSignedIn = useMemo(() => {
     const { 'auth.token': token } = parseCookies();
 
-    if (token) {
-      try {
-        const { data } = useCurrentUserQuery({  fetchPolicy: 'network-only' });
-
-        const { email, firstname, lastname, role } = data?.me as User;
-
-        setUser({ email, firstname, lastname, role });
-      } catch (err) {
-        signOut();
-      }
-    }
+    return !!token
   }, []);
 
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
@@ -90,7 +58,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       const { accessToken,  refreshToken, user } = response.data?.login || {};
-      const { firstname, lastname, role } = user as User;
 
       setCookie(undefined, 'auth.token', accessToken, {
         maxAge: 60 * 60 * 24 * 30, // 30 days
@@ -102,21 +69,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         path: '/'
       })
 
-      setUser({
-        email,
-        firstname,
-        lastname,
-        role
+      setCookie(undefined, 'user', JSON.stringify({ id: user?.id, email: user?.email, firstname: user?.firstname, lastname: user?.lastname }), {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/'
       })
 
       Router.push('/posts');
     } catch (err) {
       console.log(err);
     }
+  }, [signInUser]);
+
+  const getUser = useCallback(async () => {
+    const { user } = parseCookies();
+
+    const currentUser = user ? JSON.parse(user) : {};
+
+    return currentUser;
   }, []);
 
   return (
-    <AuthContext.Provider value={{ signIn, signOut, isSignedIn, user }}>
+    <AuthContext.Provider value={{ signIn, signOut, getUser, isSignedIn }}>
       {children}
     </AuthContext.Provider>
   );
